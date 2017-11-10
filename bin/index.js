@@ -4,52 +4,53 @@ const mysql = require('mysql')
 const connection = mysql.createConnection({
   host     : 'localhost',
   user     : 'root',
-  password : '',
+  password : 'root',
   database : 'faker'
 });
 
 const possibleFields = [ 'nome', 'email', 'telefone', 'endereco', 'cidade', 'empresa', 'valor', 'preco', 'data' ]
 
+const pastDateFormated = ( date ) => {
+    let dateMonth = date.getMonth()
+    if( dateMonth < 9 ) 
+        dateMonth = '0' + dateMonth
+    return date.getYear() + '-' + dateMonth + '-' + date.getDay()
+}
+
 const fakerValues = () => [
-    faker.phone.phoneNumberFormat(),
+    faker.name.findName(),
     faker.internet.email(),
     faker.phone.phoneNumberFormat(),
     faker.address.streetAddress(),
-    faker.address.country(),
+    faker.address.city(),
     faker.company.companyName(),
     faker.commerce.price(),
     faker.commerce.price(),
-    faker.date.past()
+    pastDateFormated( faker.date.past() )
 ]
 
 connection.connect( ( err ) =>  {
-    if ( err ) throw err;
-    
-    const select = connection.query( 'SHOW COLUMNS FROM faker')
-
-    select.on('result', (columns) => {
-        for( let a = 0; a < 10; a++ ){
-            setTimeout( () => {
-                for( let i = 0; i < columns.length - 1; i++ ){
-                    let currentQuery = {}
-                    for( let c = 0; c < possibleFields.length; c++ ) {
-                        if( columns[ i ]['Field'].includes( possibleFields[ c ] ) ){
-                            // console.log(possibleFields[ c ], fakerValues()[ c ])
-                            currentQuery[possibleFields[ c ]] = fakerValues()[ c ]
-                        }
-                    }
-
-                    const query = connection.query('INSERT INTO faker SET ?', currentQuery);
-                    console.log(query.sql);
-                    query.on('end', () => connection.end())
-                }
-            }, 100)
-        }
-    })
-
-    select.on('end', () => connection.end())
+    connection.on('error', ( err ) => {
+        console.log( "[mysql error]", err );
+    });
 });
 
- //   let dateMonth = date.getMonth()
-    //   if( dateMonth < 9 ) dateMonth = '0' + dateMonth
-    //   console.log(date.getYear() + '-' + dateMonth + '-' + date.getDay())
+connection.query( 'SHOW COLUMNS FROM faker', ( error, columns ) => {
+    for( let a = 0; a < 100; a++ ){
+        setTimeout( () => {
+            let currentQuery = {}
+            for( let i = 0; i < columns.length; i++ ){
+                for( let c = 0; c < possibleFields.length; c++ ) {
+                    if( columns[ i ][ 'Field' ].includes( possibleFields[ c ] ) ){
+                        currentQuery[ possibleFields[ c ] ] = fakerValues()[ c ]
+                    }
+                }
+            }
+            let query = connection.query( 'INSERT INTO faker SET ?' , currentQuery, () => {
+                if( a == 99 )
+                    connection.end()
+            });
+        })
+    }
+})
+ 
